@@ -26,9 +26,9 @@
   notify: reload nginx
 
 - name: Ensure that the application site is enabled
-  command: ln -s /etc/nginx/sites-available/{{ project_name }}
-           /etc/nginx/sites-enabled/{{ project_name }}
-           creates=/etc/nginx/sites-enabled/{{ project_name }}
+  command: ln -s /etc/nginx/sites-available/{{ project_name }}.conf
+           /etc/nginx/sites-enabled/{{ project_name }}.conf
+           creates=/etc/nginx/sites-enabled/{{ project_name }}.conf
   notify: reload nginx
 
 - name: Ensure Nginx service is started
