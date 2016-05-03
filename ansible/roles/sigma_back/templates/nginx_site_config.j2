@@ -7,65 +7,37 @@ upstream {{ project_name }}_{{ application_module }}_wsgi_server {
 }
 
 server {
-    listen      {{ sigma_back_http_port }};
-    server_name {{ sigma_back_server_name }};
-    {% if ssl_dest_dir is defined %}
-    rewrite     ^ https://$hostname$request_uri? permanent;
-}
-
-server {
-    listen              {{ sigma_back_https_port }};
-    server_name         {{ sigma_back_server_name }};
-
-	ssl on;
-	ssl_certificate     {{ ssl_dest_dir }}/{{ project_name }}.crt;
-	ssl_certificate_key {{ ssl_dest_dir }}/{{ project_name }}.key;
-    {% endif %}
+    listen 80;
+    server_name "_";
+    root {{ sigma_front_dir }}/dist/prod;
+    index index.html;
 
     client_max_body_size 4G;
 
     access_log {{ nginx_access_log_file }};
     error_log {{ nginx_error_log_file }};
 
+    # Backend config
     location /static/ {
         alias   {{ nginx_static_dir }};
     }
-
     location /media/ {
         alias   {{ nginx_media_dir }};
     }
-
-    location / {
+    location = /api {
+        return 302 /api/;
+    }
+    location /api/ {
         if (-f {{ virtualenv_path }}/maintenance_on.html) {
             return 503;
         }
-
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        {% if ssl_dest_dir is defined %}
-        proxy_set_header X-Forwarded-Proto https;
-        {% else %}
         proxy_set_header X-Forwarded-Proto http;
-        {% endif %}
-
         proxy_set_header Host $http_host;
         proxy_redirect off;
-
         # Try to serve static files from nginx, no point in making an
         # *application* server like Unicorn/Rainbows! serve static files.
-        if (!-f $request_filename) {
-            proxy_pass http://{{ project_name }}_{{ application_module }}_wsgi_server;
-            break;
-        }
-    }
-
-    # Error pages
-    error_page 500 502 504 /500.html;
-    location = /500.html {
-        root {{ project_path }}/templates/;
-    }
-
-    error_page 503 /maintenance_on.html;
-    location = /maintenance_on.html {
-        root {{ virtualenv_path }}/;
+        rewrite ^/api(.*)$ $1 break;
+        proxy_pass http://{{ project_name }}_{{ application_module }}_wsgi_server;
     }
 }
